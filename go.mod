@@ -10,7 +10,7 @@ require (
 	github.com/go-playground/assert/v2 v2.2.0
 	github.com/lf4096/gin-compress v0.1.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/rs/zerolog v1.29.1
+	github.com/rs/zerolog v1.30.0
 	github.com/samber/lo v1.38.1
 )
 
