@@ -15,6 +15,9 @@
         <a class="btn btn-info bg-white join-item apple">
             Apple Calendar <span class="icon-[logos--apple] text-xl"></span>
         </a>
+        <a class="btn btn-info bg-white join-item outlook">
+            Outlook Calendar <span></span>
+        </a>
     </div>
 {{ end }}
 
@@ -66,6 +69,7 @@
 
 
             const webcalLink = `webcal://${url.host}${calPath}`
+            const link = '${url.host}${calPath}'
 
             pre.innerHTML = webcalLink;
             // Select all text on click
@@ -97,8 +101,12 @@
 
             const addToAppleBtn = el.getElementsByClassName("apple")[0]
             addToAppleBtn.href = webcalLink
+
+            const addToOutlookBtn = el.getElementsByClassName("outlook")[0]
+            addToOutlookBtn.href = 'https://outlook.office.com/calendar/addcalendar'
+            addToOutlookBtn.addEventListener("click", () => {
+                window.open(link)
+            })
         }
     </script>
 {{ end }}
-
-
