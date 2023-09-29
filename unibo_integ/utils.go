@@ -1,7 +1,6 @@
-package unibo
+package unibo_integ
 
 import (
-	"encoding/json"
 	"net/http"
 )
 
@@ -20,26 +19,4 @@ var Client = http.Client{
 	Transport: &transport{
 		http.DefaultTransport,
 	},
-}
-
-func getJson(url string, v interface{}) error {
-	// Get the resource
-	res, err := Client.Get(url)
-	if err != nil {
-		return err
-	}
-
-	// Parse the body
-	err = json.NewDecoder(res.Body).Decode(v)
-	if err != nil {
-		return err
-	}
-
-	// Close the body
-	err = res.Body.Close()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

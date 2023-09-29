@@ -1,24 +1,45 @@
-package unibo
+package unibo_integ
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/csunibo/unibo-go/opendata"
 )
 
-const (
-	rootUnibo = "https://dati.unibo.it"
-)
-
-type Package struct {
-	Success bool `json:"success"`
-	Result  struct {
-		Resources Resources
+func DownloadResource(resource *opendata.Resource) ([]Course, error) {
+	// Get the resource
+	res, err := Client.Get(resource.Url)
+	if err != nil {
+		return nil, err
 	}
+
+	// Parse the body
+	var courses []Course
+	if strings.HasSuffix(resource.Url, ".csv") {
+		courses, err = downloadCSV(res.Body)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Close the body
+	err = res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	if courses == nil {
+		return nil, fmt.Errorf("resource is not a csv file")
+	}
+
+	return courses, nil
 }
 
-func (r Resource) downloadCSV(body io.Reader) ([]Course, error) {
+func downloadCSV(body io.Reader) ([]Course, error) {
 	courses := make([]Course, 0, 100)
 
 	reader := csv.NewReader(body)
@@ -73,21 +94,4 @@ func (r Resource) downloadCSV(body io.Reader) ([]Course, error) {
 		})
 	}
 	return courses, nil
-}
-
-type Resources []Resource
-
-func (r Resources) GetByAlias(alias string) *Resource {
-	for _, resource := range r {
-		// Some resources have multiple aliases
-		rAliases := strings.Split(resource.Alias, ", ")
-
-		// Check if the alias is one of the aliases of the resource
-		for _, rAlias := range rAliases {
-			if rAlias == alias {
-				return &resource
-			}
-		}
-	}
-	return nil
 }

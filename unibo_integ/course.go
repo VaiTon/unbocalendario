@@ -1,8 +1,10 @@
-package unibo
+package unibo_integ
 
 import (
 	"bytes"
 	"fmt"
+	"github.com/csunibo/unibo-go/curriculum"
+	"github.com/csunibo/unibo-go/timetable"
 	"io"
 	"regexp"
 	"strconv"
@@ -86,6 +88,8 @@ func (c Course) scrapeCourseWebsiteId() (CourseId, error) {
 	found := reg.FindStringSubmatch(buf.String())
 	if found == nil {
 		return CourseId{}, fmt.Errorf("unable to find course website")
+	} else if len(found) != 2 {
+		return CourseId{}, fmt.Errorf("unexpected number of matches: %d (the website has changed?)", len(found))
 	}
 
 	// full url -> laurea/IngegneriaInformatica
@@ -96,13 +100,13 @@ func (c Course) scrapeCourseWebsiteId() (CourseId, error) {
 	return CourseId{split[0], split[1]}, nil
 }
 
-func (c Course) GetCurricula(year int) (Curricula, error) {
+func (c Course) GetCurricula(year int) (curriculum.Curricula, error) {
 	id, err := c.GetCourseWebsiteId()
 	if err != nil {
 		return nil, err
 	}
 
-	curricula, err := FetchCurricula(id, year)
+	curricula, err := curriculum.FetchCurricula(id.Tipologia, id.Id, year)
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +114,18 @@ func (c Course) GetCurricula(year int) (Curricula, error) {
 	return curricula, nil
 }
 
-func (c Course) GetAllCurricula() (map[int]Curricula, error) {
+func (c Course) GetAllCurricula() (map[int]curriculum.Curricula, error) {
 	id, err := c.GetCourseWebsiteId()
 	if err != nil {
 		return nil, fmt.Errorf("could not get course website id: %w", err)
 	}
 
-	currCh := make(chan Curricula)
+	currCh := make(chan curriculum.Curricula)
 	errCh := make(chan error)
 
 	for year := 1; year <= c.DurataAnni; year++ {
 		go func(year int) {
-			curricula, err := FetchCurricula(id, year)
+			curricula, err := curriculum.FetchCurricula(id.Tipologia, id.Id, year)
 			if err != nil {
 				errCh <- err
 				return
@@ -130,7 +134,7 @@ func (c Course) GetAllCurricula() (map[int]Curricula, error) {
 		}(year)
 	}
 
-	curriculaMap := make(map[int]Curricula, c.DurataAnni)
+	curriculaMap := make(map[int]curriculum.Curricula, c.DurataAnni)
 	for year := 1; year <= c.DurataAnni; year++ {
 		select {
 		case curricula := <-currCh:
@@ -143,23 +147,23 @@ func (c Course) GetAllCurricula() (map[int]Curricula, error) {
 	return curriculaMap, nil
 }
 
-func (c Course) GetTimetable(year int, curriculum Curriculum, period *TimetablePeriod) (Timetable, error) {
+func (c Course) GetTimetable(year int, curriculum curriculum.Curriculum, period *timetable.Interval) (timetable.Timetable, error) {
 	id, err := c.GetCourseWebsiteId()
 	if err != nil {
 		return nil, err
 	}
 
-	timetable, err := FetchTimetable(id, curriculum, year, period)
+	t, err := timetable.FetchTimetable(id.Tipologia, id.Id, curriculum.Value, year, period)
 	if err != nil {
 		return nil, err
 	}
 
-	return timetable, nil
+	return t, nil
 }
 
 type CoursesMap map[int]Course
 
-func (c CoursesMap) ToList() Courses {
+func (c CoursesMap) ToList() []Course {
 	courses := make([]Course, 0, len(c))
 	for _, course := range c {
 		courses = append(courses, course)
@@ -170,24 +174,4 @@ func (c CoursesMap) ToList() Courses {
 func (c CoursesMap) FindById(id int) (*Course, bool) {
 	course, found := c[id]
 	return &course, found
-}
-
-type Courses []Course
-
-func (c Courses) Len() int {
-	return len(c)
-}
-
-func (c Courses) Less(i, j int) bool {
-	if c[i].AnnoAccademico != c[j].AnnoAccademico {
-		return c[i].AnnoAccademico < c[j].AnnoAccademico
-	}
-	if c[i].Tipologia != c[j].Tipologia {
-		return c[i].Tipologia < c[j].Tipologia
-	}
-	return c[i].Codice < c[j].Codice
-}
-
-func (c Courses) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
 }

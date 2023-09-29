@@ -8,11 +8,13 @@ import (
 	"os"
 	"path"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/csunibo/unibo-go/curriculum"
+	"github.com/csunibo/unibo-go/timetable"
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/gin-contrib/multitemplate"
@@ -23,7 +25,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/VaiTon/unibocalendar/unibo"
+	"github.com/VaiTon/unibocalendar/unibo_integ"
 )
 
 const templateDir = "./templates"
@@ -70,7 +72,7 @@ func main() {
 	}
 }
 
-func setupRouter(courses unibo.CoursesMap) *gin.Engine {
+func setupRouter(courses unibo_integ.CoursesMap) *gin.Engine {
 	r := gin.Default()
 	r.Use(compress.Compress())
 	// Limit payload to 10 MB. This fixes zip bombs.
@@ -84,7 +86,9 @@ func setupRouter(courses unibo.CoursesMap) *gin.Engine {
 	})
 
 	coursesList := courses.ToList()
-	sort.Sort(coursesList)
+	slices.SortFunc(coursesList, func(a, b unibo_integ.Course) int {
+		return b.Codice - a.Codice
+	})
 	r.GET("/courses", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "courses", gin.H{
 			"courses": coursesList,
@@ -97,7 +101,7 @@ func setupRouter(courses unibo.CoursesMap) *gin.Engine {
 	return r
 }
 
-func coursePage(courses unibo.CoursesMap) func(c *gin.Context) {
+func coursePage(courses unibo_integ.CoursesMap) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		courseId := c.Param("id")
 		if courseId == "" {
@@ -120,7 +124,7 @@ func coursePage(courses unibo.CoursesMap) func(c *gin.Context) {
 		curricula, err := course.GetAllCurricula()
 		if err != nil {
 			_ = c.Error(fmt.Errorf("unable to retrieve curricula: %w", err))
-			curricula = map[int]unibo.Curricula{}
+			curricula = map[int]curriculum.Curricula{}
 		}
 
 		c.HTML(http.StatusOK, "course", gin.H{
@@ -132,50 +136,50 @@ func coursePage(courses unibo.CoursesMap) func(c *gin.Context) {
 
 var calcache = cache.New(time.Minute*10, time.Minute*30)
 
-func getCoursesCal(courses *unibo.CoursesMap) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		anno := c.Param("anno")
+func getCoursesCal(courses *unibo_integ.CoursesMap) func(c *gin.Context) {
+	return func(ctx *gin.Context) {
+		id := ctx.Param("id")
+		anno := ctx.Param("anno")
 
 		cacheKey := fmt.Sprintf("%s-%s", id, anno)
 		if cal, found := calcache.Get(cacheKey); found {
-			successCalendar(c, cal.(*bytes.Buffer))
+			successCalendar(ctx, cal.(*bytes.Buffer))
 			return
 		}
 
 		// Check if id is a number, otherwise return 400
 		annoInt, err := strconv.Atoi(anno)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Invalid year")
+			ctx.String(http.StatusBadRequest, "Invalid year")
 			return
 		}
 
 		// Check if id is a number, otherwise return 400
 		idInt, err := strconv.Atoi(id)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Invalid id")
+			ctx.String(http.StatusBadRequest, "Invalid id")
 			return
 		}
 
 		// Check if course exists, otherwise return 404
 		course, found := courses.FindById(idInt)
 		if !found {
-			c.String(http.StatusNotFound, "Course not found")
+			ctx.String(http.StatusNotFound, "Course not found")
 			return
 		}
 
 		if annoInt <= 0 || annoInt > course.DurataAnni {
-			c.String(http.StatusBadRequest, "Invalid year")
+			ctx.String(http.StatusBadRequest, "Invalid year")
 			return
 		}
 
-		curriculumId := c.Query("curriculum")
-		curriculum := unibo.Curriculum{}
+		curriculumId := ctx.Query("curr")
+		curr := curriculum.Curriculum{}
 		if curriculumId != "" {
-			curriculum.Value = curriculumId
+			curr.Value = curriculumId
 		}
 
-		subjectIds := c.Query("subjects")
+		subjectIds := ctx.Query("subjects")
 		var subjects []string
 		if subjectIds != "" {
 			subjects = strings.Split(subjectIds, ",")
@@ -184,30 +188,30 @@ func getCoursesCal(courses *unibo.CoursesMap) func(c *gin.Context) {
 		log.Debug().Any("subjects", subjects).Msg("Subjects")
 
 		// Try to retrieve timetable, otherwise return 500
-		timetable, err := course.GetTimetable(annoInt, curriculum, nil)
+		courseTimetable, err := course.GetTimetable(annoInt, curr, nil)
 		if err != nil {
-			_ = c.Error(err)
-			c.String(http.StatusInternalServerError, "Unable to retrieve timetable")
+			_ = ctx.Error(err)
+			ctx.String(http.StatusInternalServerError, "Unable to retrieve timetable")
 			return
 		}
 
-		cal, err := createCal(timetable, course, annoInt, subjects)
+		cal, err := createCal(courseTimetable, course, annoInt, subjects)
 		if err != nil {
-			_ = c.Error(err)
-			c.String(http.StatusInternalServerError, "Unable to create calendar")
+			_ = ctx.Error(err)
+			ctx.String(http.StatusInternalServerError, "Unable to create calendar")
 			return
 		}
 
 		buf := bytes.NewBuffer(nil)
 		err = cal.SerializeTo(buf)
 		if err != nil {
-			_ = c.Error(err)
-			c.String(http.StatusInternalServerError, "Unable to serialize calendar")
+			_ = ctx.Error(err)
+			ctx.String(http.StatusInternalServerError, "Unable to serialize calendar")
 			return
 		}
 		calcache.Set(cacheKey, buf, cache.DefaultExpiration)
 
-		successCalendar(c, buf)
+		successCalendar(ctx, buf)
 	}
 }
 
@@ -226,8 +230,8 @@ func successCalendar(c *gin.Context, cal *bytes.Buffer) {
 //
 // If subjectCodes is not nil, it will be used to filter the timetable by subjects.
 func createCal(
-	timetable unibo.Timetable,
-	course *unibo.Course,
+	timetable timetable.Timetable,
+	course *unibo_integ.Course,
 	year int,
 	subjectCodes []string,
 ) (*ics.Calendar, error) {
@@ -250,7 +254,7 @@ func createCal(
 		eventUid := fmt.Sprintf("%x", sha.Sum(nil))
 
 		e := cal.AddEvent(eventUid)
-		e.SetOrganizer(event.Docente)
+		e.SetOrganizer(event.Teacher)
 		e.SetSummary(event.Title)
 		e.SetStartAt(event.Start.Time)
 		e.SetEndAt(event.End.Time)
@@ -258,19 +262,16 @@ func createCal(
 		e.SetDtStampTime(time.Now()) // https://www.kanzaki.com/docs/ical/dtstamp.html
 
 		b := strings.Builder{}
-		b.WriteString(fmt.Sprintf("Docente: %s\n", event.Docente))
-		if len(event.Aule) > 0 {
-			b.WriteString(fmt.Sprintf("Aula: %s\n", event.Aule[0].DesRisorsa))
+		b.WriteString(fmt.Sprintf("Docente: %s\n", event.Teacher))
+		if len(event.Classrooms) > 0 {
+			b.WriteString(fmt.Sprintf("Aula: %s\n", event.Classrooms[0].Description))
+			e.SetLocation(event.Classrooms[0].Description)
 		}
 		b.WriteString(fmt.Sprintf("Cfu: %d\n", event.Cfu))
-		b.WriteString(fmt.Sprintf("Periodo: %s\n", event.Periodo))
+		b.WriteString(fmt.Sprintf("Periodo: %s\n", event.Interval))
 		b.WriteString(fmt.Sprintf("Codice modulo: %s\n", event.CodModulo))
 
 		e.SetDescription(b.String())
-
-		if len(event.Aule) > 0 {
-			e.SetLocation(event.Aule[0].DesRisorsa)
-		}
 	}
 
 	calName := fmt.Sprintf("%s - %d year", course.Descrizione, year)
@@ -283,9 +284,9 @@ func createCal(
 	return cal, nil
 }
 
-func filterTimetableBySubjects(timetable unibo.Timetable, codes []string) unibo.Timetable {
-	filtered := make(unibo.Timetable, 0, len(timetable))
-	for _, event := range timetable {
+func filterTimetableBySubjects(t timetable.Timetable, codes []string) timetable.Timetable {
+	filtered := make([]timetable.Event, 0, len(t))
+	for _, event := range t {
 		if slices.Contains(codes, event.CodModulo) {
 			filtered = append(filtered, event)
 		}

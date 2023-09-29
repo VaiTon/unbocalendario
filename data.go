@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/csunibo/unibo-go/opendata"
 	"os"
 	"path"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 
-	"github.com/VaiTon/unibocalendar/unibo"
+	"github.com/VaiTon/unibocalendar/unibo_integ"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 func downloadOpenDataIfNewer() {
 
 	// Get package
-	pack, err := unibo.GetPackage(packageId)
+	pack, err := opendata.FetchPackage(packageId)
 	if err != nil {
 		log.Warn().Err(err).Msg("unable to get package")
 		return
@@ -36,8 +37,8 @@ func downloadOpenDataIfNewer() {
 	}
 
 	// Get wanted resource
-	resource := pack.Result.Resources.GetByAlias(resourceAlias)
-	if resource == nil {
+	resource, found := pack.Result.Resources.GetByAlias(resourceAlias)
+	if !found {
 		log.Warn().Msgf("unable to find resource '%s'", resourceAlias)
 		return
 	}
@@ -67,7 +68,7 @@ func downloadOpenDataIfNewer() {
 		return
 	}
 
-	courses, err := resource.Download()
+	courses, err := unibo_integ.DownloadResource(resource)
 	if err != nil {
 		log.Panic().Err(err).Msg("Unable to download courses")
 	}
@@ -75,7 +76,7 @@ func downloadOpenDataIfNewer() {
 	actualYear := time.Now().Year()
 
 	// Filter courses by actual year
-	courses = lo.Filter(courses, func(c unibo.Course, _ int) bool {
+	courses = lo.Filter(courses, func(c unibo_integ.Course, _ int) bool {
 		return strings.Contains(c.AnnoAccademico, strconv.Itoa(actualYear))
 	})
 
@@ -87,7 +88,7 @@ func downloadOpenDataIfNewer() {
 	log.Info().Msg("Opendata file downloaded")
 }
 
-func saveData(courses []unibo.Course) error {
+func saveData(courses []unibo_integ.Course) error {
 	err := createDataFolder()
 	if err != nil {
 		return err
@@ -110,7 +111,7 @@ func createDataFolder() error {
 	return os.MkdirAll(path.Dir(coursesPathJson), os.ModePerm)
 }
 
-func openData() (unibo.CoursesMap, error) {
+func openData() (unibo_integ.CoursesMap, error) {
 	// Open file
 	file, err := os.Open(coursesPathJson)
 	if err != nil {
@@ -118,7 +119,7 @@ func openData() (unibo.CoursesMap, error) {
 	}
 
 	// Decode json
-	courses := make([]unibo.Course, 0)
+	courses := make([]unibo_integ.Course, 0)
 	err = json.NewDecoder(file).Decode(&courses)
 	if err != nil {
 		return nil, err
@@ -131,7 +132,7 @@ func openData() (unibo.CoursesMap, error) {
 	}
 
 	// Create the map
-	courseMap := make(unibo.CoursesMap, len(courses))
+	courseMap := make(unibo_integ.CoursesMap, len(courses))
 	for _, course := range courses {
 		courseMap[course.Codice] = course
 	}
