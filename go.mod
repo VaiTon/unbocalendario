@@ -1,6 +1,6 @@
 module github.com/VaiTon/unibocalendar
 
-go 1.20
+go 1.22
 
 require (
 	github.com/arran4/golang-ical v0.2.2
