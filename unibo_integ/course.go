@@ -63,7 +63,7 @@ func (c Course) GetCourseWebsiteId() (CourseId, error) {
 	return websiteId, nil
 }
 
-var reg = regexp.MustCompile(`<a href="https://corsi\.unibo\.it/(.+?)"`)
+var reg = regexp.MustCompile(`<a .* href="https://corsi\.unibo\.it/(.+?)"`)
 
 func (c Course) scrapeCourseWebsiteId() (CourseId, error) {
 
