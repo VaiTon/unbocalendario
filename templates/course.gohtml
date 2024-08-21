@@ -22,6 +22,7 @@
 
     {{$course := .Course}}
     {{$curricula := .Curricula}}
+    {{$teachings := .Teachings}}
 
     <p class="text-xl">{{.Course.Tipologia}} in</p>
     <h1 class="text-4xl font-bold mb-8">{{.Course.Descrizione}}</h1>
@@ -31,16 +32,39 @@
 
     {{range $anno := anniRange .Course.DurataAnni}}
         {{$yCurricula := index $curricula $anno}}
+        {{$yTeachings := index $teachings $anno}}
         <div class="mt-8">
             {{range $curriculum := $yCurricula }}
+            {{ $ycTeachings := index $yTeachings $curriculum }}
                 <div class="mt-4">
                     <h2 class="text-3xl ">
                         Calendario {{$anno}} anno {{if gt (len $yCurricula) 1}}({{$curriculum.Label}}){{end}}
                     </h2>
                     <div class="mt-2 cal flex gap-4">
-                            <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose"
-                                 title="Link del calendario in formato WebCal"
-                                 tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curriculum={{$curriculum.Value}}{{end}}</pre>
+                        <!-- Filter -->
+                        <div class="dropdown dropdown-bottom">
+                          <div tabindex="0" role="button" class="btn m-1"> Filter </div>
+                          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+          {{ range $teaching := $ycTeachings }}
+                            <li>
+                              <div class="form-control">
+                                <label class="label cursor-pointer">
+                <input id="checkbox" type="checkbox" class="checkbox checkbox-sm mr-5" anno="{{ $anno }}"
+                curriculum={{ $curriculum.Value }}
+                option={{ $teaching.Code }}
+              />
+                                  <span class="label-text">{{ $teaching.Name }}</span>
+                                </label>
+                              </div>      
+                            </li>
+          {{ end }}
+                          </ul>
+                        </div>
+                        <!-- End filter -->
+                        <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose"
+                             title="Link del calendario in formato WebCal"
+        id="{{ $anno }} {{ $curriculum.Value }}"
+                             tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curriculum={{$curriculum.Value}}{{end}}</pre>
                         {{ template "buttons" }}
                     </div>
                 </div>
@@ -76,9 +100,7 @@
                 range.selectNodeContents(pre);
                 const sel = window.getSelection();
                 sel.removeAllRanges();
-                sel.addRange(range);
-            });
-
+                sel.addRange(range); });
 
             const btnCopyUrl = el.getElementsByTagName("button")[0]
             btnCopyUrl.addEventListener("click", () => {
@@ -100,6 +122,61 @@
             const addToAppleBtn = el.getElementsByClassName("apple")[0]
             addToAppleBtn.href = webcalLink
         }
+
+        // Utility functions to work with URL params
+        function addSubject(url, subject) {
+          if (url.includes("subjects")) {
+            url = url.replace(",,", "")
+            url = url.replace("=,", "=")
+            
+            let last_char = url.slice(-1)
+            if (last_char != "," && last_char != "=") {
+              url = url + ","
+            }
+            return url + subject
+          } else {
+            if (url.includes("?")) {
+              return url + "&subjects=" + subject
+            } else {
+              return url + "?subjects=" + subject
+            }
+          }
+        }
+
+        function removeSubject(url, subject) {
+          url = url.replace(subject, "")
+          url = url.replace(",,", "")
+          url = url.replace("=,", "=")
+          return url
+        }
+
+        const checkboxes = document.getElementsByClassName("checkbox")
+        for (const ck of checkboxes) {
+          ck.checked = false
+
+          let a = ck.getAttribute("anno")
+          let c = ck.getAttribute("curriculum")
+          let o = ck.getAttribute("option")
+
+          if (!c) {
+            c = ""
+          } 
+
+          ck.addEventListener("click", (event) => {
+            let id = `${a} ${c}`
+
+            el = document.getElementById(id)
+
+            if (ck.checked) {
+              console.log(`Adding ${o} to: ${id}`)
+              el.innerHTML = addSubject(el.innerHTML, o)
+            } else {
+              console.log(`Removing ${o} to: ${id}`)
+              el.innerHTML = removeSubject(el.innerHTML, o)
+            }
+          })
+        }
+
     </script>
 {{ end }}
 

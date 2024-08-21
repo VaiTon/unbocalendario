@@ -101,35 +101,62 @@ func setupRouter(courses unibo_integ.CoursesMap) *gin.Engine {
 	return r
 }
 
+var subjectscache = cache.New(time.Hour*1, time.Hour*5)
+
 func coursePage(courses unibo_integ.CoursesMap) func(c *gin.Context) {
-	return func(c *gin.Context) {
-		courseId := c.Param("id")
+	return func(ctx *gin.Context) {
+		courseId := ctx.Param("id")
 		if courseId == "" {
-			c.String(http.StatusBadRequest, "Invalid course id")
+			ctx.String(http.StatusBadRequest, "Invalid course id")
 			return
 		}
 
 		courseIdInt, err := strconv.Atoi(courseId)
 		if err != nil {
-			c.String(http.StatusBadRequest, "Invalid course id")
+			ctx.String(http.StatusBadRequest, "Invalid course id")
 			return
 		}
 
 		course, found := courses.FindById(courseIdInt)
 		if !found {
-			c.String(http.StatusNotFound, "Course not found")
+			ctx.String(http.StatusNotFound, "Course not found")
 			return
 		}
 
 		curricula, err := course.GetAllCurricula()
 		if err != nil {
-			_ = c.Error(fmt.Errorf("unable to retrieve curricula: %w", err))
+			_ = ctx.Error(fmt.Errorf("unable to retrieve curricula: %w", err))
 			curricula = map[int]curriculum.Curricula{}
 		}
 
-		c.HTML(http.StatusOK, "course", gin.H{
+		m := make(map[int]map[curriculum.Curriculum][]timetable.SimpleSubject)
+		for y, cs := range curricula {
+			m[y] = make(map[curriculum.Curriculum][]timetable.SimpleSubject)
+			for _, c := range cs {
+
+				var subjects []timetable.SimpleSubject
+				key := fmt.Sprintf("%d-%d-%s", course.Codice, y, c.Value)
+				if t, found := subjectscache.Get(key); found {
+					subjects = t.([]timetable.SimpleSubject)
+				} else {
+					courseTimetable, err := course.GetTimetable(y, c, nil)
+					if err != nil {
+						// Can't do much, maybe log the error?
+						continue
+					}
+
+					subjects = courseTimetable.GetSubjects()
+					subjectscache.Set(key, subjects, cache.DefaultExpiration)
+				}
+
+				m[y][c] = subjects
+			}
+		}
+
+		ctx.HTML(http.StatusOK, "course", gin.H{
 			"Course":    course,
 			"Curricula": curricula,
+			"Teachings": m,
 		})
 	}
 }
@@ -140,12 +167,6 @@ func getCoursesCal(courses *unibo_integ.CoursesMap) func(c *gin.Context) {
 	return func(ctx *gin.Context) {
 		id := ctx.Param("id")
 		anno := ctx.Param("anno")
-
-		cacheKey := fmt.Sprintf("%s-%s", id, anno)
-		if cal, found := calcache.Get(cacheKey); found {
-			successCalendar(ctx, cal.(*bytes.Buffer))
-			return
-		}
 
 		// Check if id is a number, otherwise return 400
 		annoInt, err := strconv.Atoi(anno)
@@ -182,8 +203,21 @@ func getCoursesCal(courses *unibo_integ.CoursesMap) func(c *gin.Context) {
 		subjectIds := ctx.Query("subjects")
 		var subjects []string
 		if subjectIds != "" {
-			subjects = strings.Split(subjectIds, ",")
+			tmp := strings.Split(subjectIds, ",")
+			for i := range tmp {
+				if len(tmp[i]) != 0 {
+					subjects = append(subjects, tmp[i])
+				}
+			}
 			log.Debug().Strs("subjects", subjects).Msg("queried subjects")
+		}
+
+		slices.Sort(subjects)
+
+		cacheKey := fmt.Sprintf("%s-%s-%s", id, anno, subjects)
+		if cal, found := calcache.Get(cacheKey); found {
+			successCalendar(ctx, cal.(*bytes.Buffer))
+			return
 		}
 
 		// Try to retrieve timetable, otherwise return 500
@@ -208,6 +242,7 @@ func getCoursesCal(courses *unibo_integ.CoursesMap) func(c *gin.Context) {
 			ctx.String(http.StatusInternalServerError, "Unable to serialize calendar")
 			return
 		}
+
 		calcache.Set(cacheKey, buf, cache.DefaultExpiration)
 
 		successCalendar(ctx, buf)
