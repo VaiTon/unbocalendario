@@ -64,7 +64,7 @@
                         <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose"
                              title="Link del calendario in formato WebCal"
         id="{{ $anno }} {{ $curriculum.Value }}"
-                             tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curriculum={{$curriculum.Value}}{{end}}</pre>
+                             tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curr={{$curriculum.Value}}{{end}}</pre>
                         {{ template "buttons" }}
                     </div>
                 </div>

@@ -141,6 +141,7 @@ func coursePage(courses unibo_integ.CoursesMap) func(c *gin.Context) {
 				} else {
 					courseTimetable, err := course.GetTimetable(y, c, nil)
 					if err != nil {
+						_ = ctx.Error(fmt.Errorf("unable to retrieve timetable for subjects: %w", err))
 						// Can't do much, maybe log the error?
 						continue
 					}
@@ -214,7 +215,7 @@ func getCoursesCal(courses *unibo_integ.CoursesMap) func(c *gin.Context) {
 
 		slices.Sort(subjects)
 
-		cacheKey := fmt.Sprintf("%s-%s-%s", id, anno, subjects)
+		cacheKey := fmt.Sprintf("%s-%s-%s-%s", id, anno, curr.Value, subjects)
 		if cal, found := calcache.Get(cacheKey); found {
 			successCalendar(ctx, cal.(*bytes.Buffer))
 			return

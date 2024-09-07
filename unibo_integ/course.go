@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/csunibo/unibo-go/curriculum"
 	"github.com/csunibo/unibo-go/timetable"
@@ -128,31 +129,36 @@ func (c Course) GetAllCurricula() (map[int]curriculum.Curricula, error) {
 		return nil, fmt.Errorf("could not get course website id: %w", err)
 	}
 
-	currCh := make(chan curriculum.Curricula)
-	errCh := make(chan error)
+	errCh := make(chan error, c.DurataAnni)
+	var wg sync.WaitGroup
+
+	var mapMutex sync.Mutex
+	curriculaMap := make(map[int]curriculum.Curricula, c.DurataAnni)
 
 	for year := 1; year <= c.DurataAnni; year++ {
-		go func(year int) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
 			curricula, err := curriculum.FetchCurricula(id.Tipologia, id.Id, year)
 			if err != nil {
 				errCh <- err
-				return
+			} else {
+				mapMutex.Lock()
+				curriculaMap[year] = curricula
+				mapMutex.Unlock()
 			}
-			currCh <- curricula
-		}(year)
+		}()
 	}
 
-	curriculaMap := make(map[int]curriculum.Curricula, c.DurataAnni)
-	for year := 1; year <= c.DurataAnni; year++ {
-		select {
-		case curricula := <-currCh:
-			curriculaMap[year] = curricula
-		case err := <-errCh:
-			return nil, err
-		}
+	wg.Wait()
+	select {
+	case e := <-errCh:
+		close(errCh)
+		return nil, e
+	default:
+		return curriculaMap, nil
 	}
-
-	return curriculaMap, nil
 }
 
 func (c Course) GetTimetable(year int, curriculum curriculum.Curriculum, period *timetable.Interval) (timetable.Timetable, error) {
