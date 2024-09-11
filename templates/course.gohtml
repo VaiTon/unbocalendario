@@ -42,24 +42,26 @@
                     </h2>
                     <div class="mt-2 cal flex gap-4">
                         <!-- Filter -->
+                        {{ if gt (len $ycTeachings) 1 }}
                         <div class="dropdown dropdown-bottom">
                           <div tabindex="0" role="button" class="btn m-1"> Filter </div>
                           <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
-          {{ range $teaching := $ycTeachings }}
-                            <li>
+                          {{ range $teaching := $ycTeachings }}
+                            <li class="bg-base-100">
                               <div class="form-control">
                                 <label class="label cursor-pointer">
                 <input id="checkbox" type="checkbox" class="checkbox checkbox-sm mr-5" anno="{{ $anno }}"
                 curriculum={{ $curriculum.Value }}
                 option={{ $teaching.Code }}
               />
-                                  <span class="label-text">{{ $teaching.Name }}</span>
+                                  <span class="label-text ">{{ $teaching.Name }}</span>
                                 </label>
                               </div>      
                             </li>
-          {{ end }}
+                          {{ end }}
                           </ul>
                         </div>
+                        {{ end }}
                         <!-- End filter -->
                         <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose"
                              title="Link del calendario in formato WebCal"
