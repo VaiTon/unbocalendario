@@ -20,6 +20,8 @@ github.com/csunibo/unibo-go v0.0.10 h1:UwFIvTpXMKZCOVoX564RmqQttXTTs5Xz5hCAjun8N
 github.com/csunibo/unibo-go v0.0.10/go.mod h1:h2+xnccHa7x48RNB6d07bpHQ01ozw4oihgDOlvVrJ9U=
 github.com/csunibo/unibo-go v0.0.11 h1:vCRbMepElEV61jFZw0TU7c0nEnIQg/d/4gXphPgK9R0=
 github.com/csunibo/unibo-go v0.0.11/go.mod h1:h2+xnccHa7x48RNB6d07bpHQ01ozw4oihgDOlvVrJ9U=
+github.com/csunibo/unibo-go v0.0.12 h1:tNcapp8PF53bRdOyy2ZldS/Wfk/N6fOGrdcg4KBbI90=
+github.com/csunibo/unibo-go v0.0.12/go.mod h1:h2+xnccHa7x48RNB6d07bpHQ01ozw4oihgDOlvVrJ9U=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
