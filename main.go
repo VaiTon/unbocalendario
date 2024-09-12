@@ -64,6 +64,8 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to open open data file")
 	}
 
+	go fillSubjectsCache(courses)
+
 	r := setupRouter(courses)
 
 	err = r.Run()
@@ -101,8 +103,6 @@ func setupRouter(courses unibo_integ.CoursesMap) *gin.Engine {
 	return r
 }
 
-var subjectscache = cache.New(time.Hour*1, time.Hour*5)
-
 func coursePage(courses unibo_integ.CoursesMap) func(c *gin.Context) {
 	return func(ctx *gin.Context) {
 		courseId := ctx.Param("id")
@@ -126,32 +126,12 @@ func coursePage(courses unibo_integ.CoursesMap) func(c *gin.Context) {
 		curricula, err := course.GetAllCurricula()
 		if err != nil {
 			_ = ctx.Error(fmt.Errorf("unable to retrieve curricula: %w", err))
-			curricula = map[int]curriculum.Curricula{}
+			curricula = nil
 		}
 
-		m := make(map[int]map[curriculum.Curriculum][]timetable.SimpleSubject)
-		for y, cs := range curricula {
-			m[y] = make(map[curriculum.Curriculum][]timetable.SimpleSubject)
-			for _, c := range cs {
-
-				var subjects []timetable.SimpleSubject
-				key := fmt.Sprintf("%d-%d-%s", course.Codice, y, c.Value)
-				if t, found := subjectscache.Get(key); found {
-					subjects = t.([]timetable.SimpleSubject)
-				} else {
-					courseTimetable, err := course.GetTimetable(y, c, nil)
-					if err != nil {
-						_ = ctx.Error(fmt.Errorf("unable to retrieve timetable for subjects: %w", err))
-						// Can't do much, maybe log the error?
-						continue
-					}
-
-					subjects = courseTimetable.GetSubjects()
-					subjectscache.Set(key, subjects, cache.DefaultExpiration)
-				}
-
-				m[y][c] = subjects
-			}
+		m, err := getSubjectsMapFromCourseAndCurricula(course, curricula)
+		if err != nil {
+			_ = ctx.Error(fmt.Errorf("unable to retrieve subjects: %w", err))
 		}
 
 		ctx.HTML(http.StatusOK, "course", gin.H{
@@ -328,4 +308,71 @@ func filterTimetableBySubjects(t timetable.Timetable, codes []string) timetable.
 		}
 	}
 	return filtered
+}
+
+var subjectscacheExpirationTime = time.Hour * 4
+var subjectscache = cache.New(subjectscacheExpirationTime, time.Hour*6)
+
+// The return type is a map that for every year of the course map a curriculum
+// to a slice of subjects
+func getSubjectsMapFromCourseAndCurricula(course *unibo_integ.Course, curricula map[int]curriculum.Curricula) (map[int]map[curriculum.Curriculum][]timetable.SimpleSubject, error) {
+	if course == nil {
+		return nil, fmt.Errorf("course parameter is nil")
+	}
+
+	if curricula == nil {
+		return nil, fmt.Errorf("curricula parameter is nil")
+	}
+
+	m := make(map[int]map[curriculum.Curriculum][]timetable.SimpleSubject)
+	for y, cs := range curricula {
+		m[y] = make(map[curriculum.Curriculum][]timetable.SimpleSubject)
+		for _, c := range cs {
+
+			var subjects []timetable.SimpleSubject
+			key := fmt.Sprintf("%d-%d-%s", course.Codice, y, c.Value)
+			if t, found := subjectscache.Get(key); found {
+				subjects = t.([]timetable.SimpleSubject)
+			} else {
+				courseTimetable, err := course.GetTimetable(y, c, nil)
+				if err != nil {
+					// Can't do much. We return nil so the caller can retry
+					return nil, fmt.Errorf("unable to retrieve timetable for subjects: %w", err)
+				}
+
+				subjects = courseTimetable.GetSubjects()
+				subjectscache.Set(key, subjects, cache.DefaultExpiration)
+			}
+
+			m[y][c] = subjects
+		}
+	}
+
+	return m, nil
+}
+
+// This functions calls getSubjectsMapFromCourseAndCurricula for every course,
+// so the cache is always full and users do not see a slow site
+func fillSubjectsCache(courses unibo_integ.CoursesMap) {
+	// This is to make sure everything is started
+	time.Sleep(time.Second * 5)
+
+	for _, course := range courses {
+		log.Debug().Int("course-code", course.Codice).Str("course-name", course.Descrizione).Msg("queried subjects")
+
+		curricula, err := course.GetAllCurricula()
+		if err != nil {
+			log.Err(err).Int("course-code", course.Codice).Str("course-name", course.Descrizione).Msg("Can't get curricula in workerfor course")
+			continue
+		}
+		_, err = getSubjectsMapFromCourseAndCurricula(&course, curricula)
+		if err != nil {
+			log.Err(err).Msg("Can't subjects in worker")
+			continue
+		}
+
+		time.Sleep(time.Second * 30)
+	}
+
+	time.Sleep(subjectscacheExpirationTime)
 }
