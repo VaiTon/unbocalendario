@@ -310,8 +310,10 @@ func filterTimetableBySubjects(t timetable.Timetable, codes []string) timetable.
 	return filtered
 }
 
-var subjectscacheExpirationTime = time.Hour * 4
-var subjectscache = cache.New(subjectscacheExpirationTime, time.Hour*6)
+var (
+	subjectscacheExpirationTime = time.Hour * 4
+	subjectscache 				= cache.New(subjectscacheExpirationTime, time.Hour*6)
+)
 
 // The return type is a map that for every year of the course map a curriculum
 // to a slice of subjects
