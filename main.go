@@ -311,13 +311,15 @@ func filterTimetableBySubjects(t timetable.Timetable, codes []string) timetable.
 }
 
 var (
-	subjectscacheExpirationTime = time.Hour * 4
-	subjectscache 				= cache.New(subjectscacheExpirationTime, time.Hour*6)
+	subjectsCacheExpirationTime = time.Hour * 4
+	subjectsCache               = cache.New(subjectsCacheExpirationTime, time.Hour*6)
 )
+
+type subjectMap = map[int]map[curriculum.Curriculum][]timetable.SimpleSubject
 
 // The return type is a map that for every year of the course map a curriculum
 // to a slice of subjects
-func getSubjectsMapFromCourseAndCurricula(course *unibo_integ.Course, curricula map[int]curriculum.Curricula) (map[int]map[curriculum.Curriculum][]timetable.SimpleSubject, error) {
+func getSubjectsMapFromCourseAndCurricula(course *unibo_integ.Course, curricula map[int]curriculum.Curricula) (subjectMap, error) {
 	if course == nil {
 		return nil, fmt.Errorf("course parameter is nil")
 	}
@@ -326,25 +328,26 @@ func getSubjectsMapFromCourseAndCurricula(course *unibo_integ.Course, curricula 
 		return nil, fmt.Errorf("curricula parameter is nil")
 	}
 
-	m := make(map[int]map[curriculum.Curriculum][]timetable.SimpleSubject)
+	m := make(subjectMap)
 	for y, cs := range curricula {
 		m[y] = make(map[curriculum.Curriculum][]timetable.SimpleSubject)
 		for _, c := range cs {
 
 			var subjects []timetable.SimpleSubject
 			key := fmt.Sprintf("%d-%d-%s", course.Codice, y, c.Value)
-			if t, found := subjectscache.Get(key); found {
-				subjects = t.([]timetable.SimpleSubject)
-			} else {
-				courseTimetable, err := course.GetTimetable(y, c, nil)
-				if err != nil {
-					// Can't do much. We return nil so the caller can retry
-					return nil, fmt.Errorf("unable to retrieve timetable for subjects: %w", err)
-				}
-
-				subjects = courseTimetable.GetSubjects()
-				subjectscache.Set(key, subjects, cache.DefaultExpiration)
+			if t, found := subjectsCache.Get(key); found {
+				m[y][c] = t.([]timetable.SimpleSubject)
+				continue
 			}
+
+			courseTimetable, err := course.GetTimetable(y, c, nil)
+			if err != nil {
+				// Can't do much. We return nil so the caller can retry
+				return nil, fmt.Errorf("unable to retrieve timetable for subjects: %w", err)
+			}
+
+			subjects = courseTimetable.GetSubjects()
+			subjectsCache.Set(key, subjects, cache.DefaultExpiration)
 
 			m[y][c] = subjects
 		}
@@ -376,5 +379,5 @@ func fillSubjectsCache(courses unibo_integ.CoursesMap) {
 		time.Sleep(time.Second * 30)
 	}
 
-	time.Sleep(subjectscacheExpirationTime)
+	time.Sleep(subjectsCacheExpirationTime)
 }
