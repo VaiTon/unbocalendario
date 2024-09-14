@@ -326,7 +326,7 @@ func getSubjectsMapFromCourseAndCurricula(course *unibo_integ.Course, curricula 
 
 	// To get a curricula from a course we need fetch from the unibo API. Sometimes
 	// this could fail, so the curricula is nil. We need to check to avoid crashing
-	// program.
+	// the program.
 	if curricula == nil {
 		return nil, fmt.Errorf("curricula parameter is nil")
 	}
