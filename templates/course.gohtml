@@ -1,23 +1,6 @@
 {{ template "base" . }}
 {{ define "title" }}Corso | {{.course.Description}}{{ end }}
 
-{{ define "buttons" }}
-    <div class="join">
-        <button class="btn btn-accent join-item" title="Copia">
-            <span class="icon-[heroicons--document-duplicate-solid] text-xl"></span>
-        </button>
-        <a class="btn btn-accent join-item open">Apri online</a>
-    </div>
-    <div class="join">
-        <a class="btn btn-info bg-white join-item google">
-            Google Calendar <span class="icon-[logos--google-calendar] text-xl"></span>
-        </a>
-        <a class="btn btn-info bg-white join-item apple">
-            Apple Calendar <span class="icon-[logos--apple] text-xl"></span>
-        </a>
-    </div>
-{{ end }}
-
 {{ define "body" }}
 
     {{$course := .Course}}
@@ -63,21 +46,25 @@
                         </div>
                         {{ end }}
                         <!-- End filter -->
-                        <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose"
+                        <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose {{ $anno }}_{{ $curriculum.Value }}"
                              title="Link del calendario in formato WebCal"
-        id="{{ $anno }} {{ $curriculum.Value }}"
                              tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curr={{$curriculum.Value}}{{end}}</pre>
-                        {{ template "buttons" }}
-                    </div>
-                </div>
-            {{else}}
-                <div class="mt-4">
-                    <p>Calendario {{$anno}} anno</p>
-                    <div class="mt-2 cal flex gap-4">
-                        <pre class="input input-bordered font-mono h-auto w-auto py-2"
-                             title="Link del calendario in formato WebCal"
-                             tabindex="0">/cal/{{$course.Codice}}/{{$anno}}</pre>
-                        {{ template "buttons" }}
+                        <!-- Buttons -->
+                        <div class="join">
+                            <button class="btn btn-accent join-item" title="Copia">
+                                <span class="icon-[heroicons--document-duplicate-solid] text-xl"></span>
+                            </button>
+                            <a class="btn btn-accent join-item open {{ $anno }}_{{ $curriculum.Value }}">Apri online</a>
+                        </div>
+                        <div class="join">
+                            <a class="btn btn-info bg-white join-item google {{ $anno }}_{{ $curriculum.Value }}">
+                                Google Calendar <span class="icon-[logos--google-calendar] text-xl"></span>
+                            </a>
+                            <a class="btn btn-info bg-white join-item apple {{ $anno }}_{{ $curriculum.Value }}">
+                                Apple Calendar <span class="icon-[logos--apple] text-xl"></span>
+                            </a>
+                        </div>
+                        <!-- End buttons -->
                     </div>
                 </div>
             {{end}}
@@ -165,16 +152,30 @@
           } 
 
           ck.addEventListener("click", (event) => {
-            let id = `${a} ${c}`
+            let class_name = `${a}_${c}`
 
-            el = document.getElementById(id)
+            els = document.getElementsByClassName(class_name)
 
-            if (ck.checked) {
-              console.log(`Adding ${o} to: ${id}`)
-              el.innerHTML = addSubject(el.innerHTML, o)
-            } else {
-              console.log(`Removing ${o} to: ${id}`)
-              el.innerHTML = removeSubject(el.innerHTML, o)
+            for (const el of els) {
+              if (ck.checked) {
+                console.log(`Adding ${o} to: ${class_name}`)
+
+                // Check if element is tye <a href="..."/>
+                if (el.nodeName == "A") {
+                  el.href = addSubject(el.href, o)
+                } else {
+                  el.innerHTML = addSubject(el.innerHTML, o)
+                }
+
+              } else {
+                console.log(`Removing ${o} to: ${class_name}`)
+
+                if (el.nodeName == "A") {
+                  el.href = removeSubject(el.href, o)
+                } else {
+                  el.innerHTML = removeSubject(el.innerHTML, o)
+                }
+              }
             }
           })
         }
