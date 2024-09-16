@@ -46,15 +46,17 @@
                         </div>
                         {{ end }}
                         <!-- End filter -->
-                        <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose {{ $anno }}_{{ $curriculum.Value }}"
+                        <pre class="input input-bordered font-mono h-auto w-auto py-2 leading-loose {{ $anno }}_{{ $curriculum.Value }}" 
+                             id="{{ $anno }}_{{ $curriculum.Value }}"
                              title="Link del calendario in formato WebCal"
                              tabindex="0">/cal/{{$course.Codice}}/{{$anno}}{{if gt (len $yCurricula) 1}}?curr={{$curriculum.Value}}{{end}}</pre>
                         <!-- Buttons -->
-                        <div class="join">
+                        <div>
                             <button class="btn btn-accent join-item" title="Copia">
+                                <span>COPY</span>
                                 <span class="icon-[heroicons--document-duplicate-solid] text-xl"></span>
                             </button>
-                            <a class="btn btn-accent join-item open {{ $anno }}_{{ $curriculum.Value }}">Apri online</a>
+                            <!--a class="btn btn-accent join-item open {{ $anno }}_{{ $curriculum.Value }}">Apri online</a-->
                         </div>
                         <div class="join">
                             <a class="btn btn-info bg-white join-item google {{ $anno }}_{{ $curriculum.Value }}">
@@ -74,6 +76,10 @@
     <script>
         const elements = document.getElementsByClassName("cal");
         const url = new URL(document.baseURI);
+
+        // const openPrefix = "https://larrybolt.github.io/online-ics-feed-viewer/#";
+        const googlePrefix = "https://www.google.com/calendar/render?cid=";
+        const applePrefix = "";
 
         for (const el of elements) {
             const pre = el.getElementsByTagName("pre")[0]
@@ -97,22 +103,23 @@
             });
 
 
-            const aOpen = el.getElementsByClassName("open")[0]
-            aOpen.href = `https://larrybolt.github.io/online-ics-feed-viewer/#` + new URLSearchParams({
-                feed: `${url.origin}${calPath}`,
-                cors: false,
-                title: "Lezioni",
-                hideinput: true
-            })
+            // const aOpen = el.getElementsByClassName("open")[0]
+            // aOpen.href = openPrefix + new URLSearchParams({
+            //     feed: `${url.origin}${calPath}`,
+            //     cors: false,
+            //     title: "Lezioni",
+            //     hideinput: true
+            // })
 
             const addToGoogleBtn = el.getElementsByClassName("google")[0]
-            addToGoogleBtn.href = `https://www.google.com/calendar/render?cid=${webcalLink}`
+            addToGoogleBtn.href = googlePrefix + encodeURIComponent(webcalLink)
 
             const addToAppleBtn = el.getElementsByClassName("apple")[0]
             addToAppleBtn.href = webcalLink
         }
 
-        // Utility functions to work with URL params
+        // Utility functions to work with URL params;
+        // Given an url string it returns the subject added
         function addSubject(url, subject) {
           if (url.includes("subjects")) {
             url = url.replace(",,", "")
@@ -132,6 +139,7 @@
           }
         }
 
+        // Given an url string it returns the subject removed from the string
         function removeSubject(url, subject) {
           url = url.replace(subject, "")
           url = url.replace(",,", "")
@@ -155,25 +163,32 @@
             let class_name = `${a}_${c}`
 
             els = document.getElementsByClassName(class_name)
+            // We need to get a cleare string of the calendar URL.
+            plain_string = document.getElementById(class_name).innerHTML
 
             for (const el of els) {
+              let res
+
               if (ck.checked) {
                 console.log(`Adding ${o} to: ${class_name}`)
-
-                // Check if element is tye <a href="..."/>
-                if (el.nodeName == "A") {
-                  el.href = addSubject(el.href, o)
-                } else {
-                  el.innerHTML = addSubject(el.innerHTML, o)
-                }
-
+                res = addSubject(plain_string, o)
               } else {
                 console.log(`Removing ${o} to: ${class_name}`)
+                res = removeSubject(plain_string, o)
+              }
 
-                if (el.nodeName == "A") {
-                  el.href = removeSubject(el.href, o)
-                } else {
-                  el.innerHTML = removeSubject(el.innerHTML, o)
+              // Check if element is tye <a href="..."/>
+              if (el.nodeName != "A") {
+                el.innerHTML = res
+              } else {
+
+                // if (el.classList.contains("open")) {
+                //   el.href = res
+                // } else
+                if (el.classList.contains("google")) {
+                  el.href = googlePrefix + encodeURIComponent(res)
+                } else if (el.classList.contains("apple")) {
+                  el.href = res
                 }
               }
             }
