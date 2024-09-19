@@ -56,7 +56,7 @@
                                 <span>COPY</span>
                                 <span class="icon-[heroicons--document-duplicate-solid] text-xl"></span>
                             </button>
-                            <!--a class="btn btn-accent join-item open {{ $anno }}_{{ $curriculum.Value }}">Apri online</a-->
+                            <a class="btn btn-accent join-item open {{ $anno }}_{{ $curriculum.Value }}">Apri online</a>
                         </div>
                         <div class="join">
                             <a class="btn btn-info bg-white join-item google {{ $anno }}_{{ $curriculum.Value }}">
@@ -77,7 +77,7 @@
         const elements = document.getElementsByClassName("cal");
         const url = new URL(document.baseURI);
 
-        // const openPrefix = "https://larrybolt.github.io/online-ics-feed-viewer/#";
+        const openPrefix = "https://simonrob.github.io/online-ics-feed-viewer/#";
         const googlePrefix = "https://www.google.com/calendar/render?cid=";
         const applePrefix = "";
 
@@ -103,13 +103,13 @@
             });
 
 
-            // const aOpen = el.getElementsByClassName("open")[0]
-            // aOpen.href = openPrefix + new URLSearchParams({
-            //     feed: `${url.origin}${calPath}`,
-            //     cors: false,
-            //     title: "Lezioni",
-            //     hideinput: true
-            // })
+            const aOpen = el.getElementsByClassName("open")[0]
+            aOpen.href = openPrefix + new URLSearchParams({
+                feed: `${url.origin}${calPath}`,
+                cors: false,
+                title: "Lezioni",
+                hideinput: true
+            })
 
             const addToGoogleBtn = el.getElementsByClassName("google")[0]
             addToGoogleBtn.href = googlePrefix + encodeURIComponent(webcalLink)
@@ -182,10 +182,9 @@
                 el.innerHTML = res
               } else {
 
-                // if (el.classList.contains("open")) {
-                //   el.href = res
-                // } else
-                if (el.classList.contains("google")) {
+                if (el.classList.contains("open")) {
+                  el.href = res
+                } else if (el.classList.contains("google")) {
                   el.href = googlePrefix + encodeURIComponent(res)
                 } else if (el.classList.contains("apple")) {
                   el.href = res
