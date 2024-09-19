@@ -4,6 +4,8 @@
 {{ define "body" }}
     <h1 class="text-4xl font-bold mb-8">Corsi</h1>
 
+    <label for="filter" class="mr-2 text-1xl">Filtra i corsi:</label>
+    <input type="text" id="filter" class="input input-bordered h-auto w-auto py-2 text-1xl mb-2" placeholder="Inserisci filtro">
 
     <table class="table">
         <thead>
@@ -18,7 +20,7 @@
             <tr>
                 <td>{{.AnnoAccademico}}</td>
                 <td>
-                    <a class="link  " href="/courses/{{$course.Codice}}">
+                    <a class="link" href="/courses/{{$course.Codice}}" data-course="{{.Tipologia}} in {{ printf "%.100s" .Descrizione }}">
                         {{.Tipologia}} in {{ printf "%.100s" .Descrizione }}
                     </a>
                 </td>
@@ -27,6 +29,33 @@
         {{ end }}
     </table>
 
+    <style id="cssFilter"></style>
+    <script>
+        const filter = document.getElementById("filter");
+        const cssFilter = document.getElementById("cssFilter");
+
+        // Given the filter to apply, updates the css of #cssFilter to hide the necessary rows of the table
+        function filterCourses(filter) {
+            // Add an attribute selector of the form [data-course*="word" i] for every (non-empty) word in filter
+            let filters = filter.trim().split(/\s+/).filter((s) => s).reduce(
+                (acc, f) => acc + '[data-course*="' + f + '" i]',
+                ""
+            );
+
+            if (filters) {
+                // For example, the generated css for "laurea informatica" is:
+                // tr:has(a:not([data-course*="laurea" i][data-course*="informatica" i])) {
+                //     display: none;
+                // }
+                cssFilter.innerHTML = "tr:has(a:not(" + filters + ")){display: none;}";
+            } else {
+                cssFilter.innerHTML = "";
+            }
+        }
+
+        if (filter.value) { // Don't run when the filter is empty
+            filterCourses(filter.value);
+        }
+        filter.addEventListener("input", (event) => filterCourses(filter.value));
+    </script>
 {{ end }}
-
-
