@@ -3,7 +3,7 @@ module github.com/VaiTon/unibocalendar
 go 1.22.1
 
 require (
-	github.com/arran4/golang-ical v0.2.2
+	github.com/arran4/golang-ical v0.3.1
 	github.com/csunibo/unibo-go v0.0.12
 	github.com/gin-contrib/multitemplate v0.0.0-20231211133547-5f8f48f9d29f
 	github.com/gin-contrib/size v1.0.1
